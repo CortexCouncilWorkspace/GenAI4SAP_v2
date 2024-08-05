@@ -3,15 +3,15 @@ import sys
 import configparser
 from vanna.chromadb import ChromaDB_VectorStore
 from vanna.google import GoogleGeminiChat
-from vanna.flask import VannaFlaskApp
+from flask_ui import VannaFlaskApp
 from waitress import serve
 import json
 from utilities import (PROJECT_ID, REGION_ID, MODEL, LANGUAGE, BQ_DATASET_ID, BQ_REGION_ID, BQ_TABLE_LIST, CHROMA_DATA_BUCKET, SERVICE_ACCOUNT_NAME, CLOUDRUN_APP_NAME, SECRET_NAME, LOGO_URL, APP_TITLE, APP_SUBTITLE, API_KEY)
 
 class MyVanna(ChromaDB_VectorStore, GoogleGeminiChat):
-    def __init__(self, config={'path':'./chroma_data'}):
+    def __init__(self, config={'path':'/chroma_data'}):
         ChromaDB_VectorStore.__init__(self, config=config)
-        GoogleGeminiChat.__init__(self, config={'api_key': f'{API_KEY}', 'model': f'{MODEL}', 'language': f'{LANGUAGE}'})
+        GoogleGeminiChat.__init__(self, config={'api_key': f'{API_KEY}', 'model': f'{MODEL}', 'language': f'{LANGUAGE}', 'temperature': 0.2})
 
 vn = MyVanna()
 

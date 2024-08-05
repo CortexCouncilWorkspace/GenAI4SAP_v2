@@ -38,14 +38,15 @@ SERVICE_ACCOUNT_NAME = config['CLOUDRUN']['SERVICE_ACCOUNT_NAME']
 CLOUDRUN_APP_NAME = config['CLOUDRUN']['CLOUDRUN_APP_NAME']
 SECRET_NAME = config['CLOUDRUN']['SECRET_NAME']
 
+
+#[API_KEY]
+API_KEY = config['API_AUTH']['API_KEY']
+
 #[PERSONALIZATION]
 LOGO_URL = config['PERSONALIZATION']['LOGO_URL']
 APP_TITLE = config['PERSONALIZATION']['APP_TITLE']
 APP_SUBTITLE = config['PERSONALIZATION']['APP_SUBTITLE']
 
-#[API_KEY]
-with open("auth/api_key", "r" ) as api_key:
-    API_KEY = api_key.readlines()[0]
 
 
 __all__ = ["PROJECT_ID",

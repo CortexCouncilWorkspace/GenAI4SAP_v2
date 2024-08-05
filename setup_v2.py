@@ -3,7 +3,7 @@ import subprocess
 import os
 import sys
 import requests
-from utilities import (PROJECT_ID, REGION_ID, MODEL, LANGUAGE, BQ_DATASET_ID, BQ_REGION_ID, BQ_TABLE_LIST, CHROMA_DATA_BUCKET, SERVICE_ACCOUNT_NAME, CLOUDRUN_APP_NAME, SECRET_NAME, LOGO_URL, APP_TITLE, APP_SUBTITLE, API_KEY)
+from utilities import (PROJECT_ID, REGION_ID, BQ_DATASET_ID, BQ_TABLE_LIST, CHROMA_DATA_BUCKET, SERVICE_ACCOUNT_NAME, CLOUDRUN_APP_NAME, SECRET_NAME)
 
 
 def run_command(command):
@@ -119,7 +119,7 @@ def main():
     print("Granting roles...")
     for role in roles:
         command = f"""gcloud projects add-iam-policy-binding {project_id} --member="serviceAccount:{service_account_email}" --role="{role}" --quiet"""
-        if not subprocess.run(command, shell=True):
+        if not subprocess.run(command, capture_output=True, shell=True):
             sys.exit(1)
 
     # Grant Storage Permissions to Cloud Build Service Account
@@ -162,10 +162,16 @@ def main():
     # Create API Key
     print("Creating API Key...")
     api_key = subprocess.check_output("gcloud beta services api-keys create --display-name='GENAI4SAP' --format='json' | jq -r '.response.keyString'", shell=True, text=True).strip()
-    with open("auth/api_key", "wb+") as apikey:
-        apikey.write(api_key.encode('utf-8'))
-        apikey.flush()
-        apikey.close()
+    module_path = os.path.abspath(os.path.join('.'))
+    sys.path.append(module_path)
+    config_file = module_path+'/config/config.ini'
+    config = configparser.ConfigParser()
+    config.read(config_file)
+    config.set('API_AUTH', 'api_key', f'{api_key}')
+
+    with open(config_file, 'w') as configfile:
+        config.write(configfile)
+
     
     # Deploy Cloud Run app
     deploy_command = (
@@ -177,7 +183,7 @@ def main():
         f"--add-volume-mount=volume=v_chromadb,mount-path=/chroma_data "
         f"--service-account={service_account_email} "
         # f"--update-secrets=/secrets/api_key={secret_name}:latest "
-        f"--port 8080 "
+        f"--port 8084 "
         f"--cpu=2 "
         f"--memory=2Gi "
         f"--service-min-instances=1 "
