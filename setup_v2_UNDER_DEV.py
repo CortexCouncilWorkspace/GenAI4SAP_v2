@@ -35,13 +35,22 @@ def resource_exists(resource_type, resource_name, project_id=None):
     Returns:
         bool: True if the resource exists, False otherwise.
     """
+    
+    # Constructing the gcloud command dynamically based on project_id
     if project_id:
         command = f"gcloud {resource_type} list --filter=name:{resource_name} --project {project_id}"
     else:
         command = f"gcloud {resource_type} list --filter=name:{resource_name}"
 
+    # Using subprocess to execute the gcloud command
     process = subprocess.run(command.split(), capture_output=True, text=True)
-    return process.returncode == 0
+    
+    # Checking the number of items in the output
+    output = process.stdout.strip()  
+    items_found = 0 if "Listed 0 items \n" in output else 1  
+
+    # Returning True if items were found, False otherwise
+    return items_found
 
 def train_setup(service_url, project_id, dataset_id, table_list):
     endpoint = f"{service_url}/api/v0/setup_train"
@@ -93,11 +102,12 @@ def main():
 
     # Create service account if it doesn't exist
     print("Creating Service Account...")
-    if not resource_exists("iam service-accounts", service_account_name, project_id):
+    sa_resource_exist = resource_exists("iam service-accounts", service_account_name, project_id)
+    if sa_resource_exist == 1:
+        print(f"Service account {service_account_name} already exists, skipping creation.")
+    else:
         if not run_command(f"gcloud iam service-accounts create {service_account_name} --project={project_id}"):
             sys.exit(1)
-    else:
-        print(f"Service account {service_account_name} already exists, skipping creation.")
 
     # Get service account email
     service_account_email = subprocess.check_output(
@@ -143,21 +153,23 @@ def main():
 
     # Check if artifact repository is available
     print("Check if Default Artifact Repository exist...")
-    if not resource_exists("artifacts repositories", "cloud-run-source-deploy", project_id):
+    art_resource_exist = resource_exists("artifacts repositories", "cloud-run-source-deploy", project_id)
+    if art_resource_exist == 1:
+        print("Repository found, skipping...")
+    else:
         print("Default Repository not found, creating...")
         create_art_repo_cmd = f"""gcloud artifacts repositories create cloud-run-source-deploy --repository-format=docker --location={region_id} --description="Cloud Run Source Deploy" --immutable-tags --async"""
         if not run_command(create_art_repo_cmd):
             sys.exit(1)
-    else:
-        print("Repository found, skipping...")
 
     # Create storage bucket if it doesn't exist
     print("Creating Storage Bucket...")
-    if not resource_exists("storage buckets", chroma_data_bucket, project_id):
-        if not run_command(f"gcloud storage buckets create gs://{chroma_data_bucket} --project={project_id} --location={region_id}"):
-            sys.exit(1)
-    else:
+    gcs_resource_exist = resource_exists("storage buckets", chroma_data_bucket, project_id)
+    if gcs_resource_exist == 1:
         print(f"Storage bucket {chroma_data_bucket} already exists, skipping creation.")
+    else:
+        if not run_command(f"gcloud storage buckets create gs://{chroma_data_bucket} --project={project_id} --location={region_id}"):
+            sys.exit(1)        
 
     # Create API Key
     print("Creating API Key...")
@@ -204,11 +216,6 @@ def main():
     else:
         print("Cannot get Service URL, check logs and run training setup later")
         sys.exit(1)
-
-    # Running Training Setup
-    # print("Running Training Setup...")
-    # response = train_setup(service_url, project_id, dataset_id, table_list)
-    # print(response)
 
     print("Setup completed successfully!")
 

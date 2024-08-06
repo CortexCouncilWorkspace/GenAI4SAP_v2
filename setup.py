@@ -3,6 +3,7 @@ import subprocess
 import os
 import sys
 import requests
+from utilities import (PROJECT_ID, REGION_ID, BQ_DATASET_ID, BQ_TABLE_LIST, CHROMA_DATA_BUCKET, SERVICE_ACCOUNT_NAME, CLOUDRUN_APP_NAME, SECRET_NAME)
 
 def run_command(command):
     """
@@ -38,19 +39,15 @@ def main():
     """
     Main function to run the setup script.
     """
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-
-    # Read configuration variables from config.ini
     print("Reading Configuration File   ")
-    project_id = config['CONFIG']['PROJECT_ID']
-    dataset_id = config['CONFIG']['DATASET_ID']
-    service_account_name = config['CONFIG']['SERVICE_ACCOUNT_NAME']
-    chroma_data_bucket = config['CONFIG']['CHROMA_DATA_BUCKET']
-    cloud_run_app_name = config['CONFIG']['CLOUD_RUN_APP_NAME']
-    region_id = config['CONFIG']['REGION_ID']
-    secret_name = config['CONFIG']['SECRET_NAME']
-    table_list = config['CONFIG']['TABLE_LIST']
+    project_id = PROJECT_ID
+    dataset_id = BQ_DATASET_ID
+    service_account_name = SERVICE_ACCOUNT_NAME
+    chroma_data_bucket = CHROMA_DATA_BUCKET
+    cloud_run_app_name = CLOUDRUN_APP_NAME
+    region_id = REGION_ID
+    secret_name = SECRET_NAME
+    table_list = BQ_TABLE_LIST
 
     # Set Google Cloud project
     print(f"Setting project to {project_id}")
@@ -136,10 +133,15 @@ def main():
     # Create API Key
     print("Creating API Key...")
     api_key = subprocess.check_output("gcloud beta services api-keys create --display-name='GENAI4SAP' --format='json' | jq -r '.response.keyString'", shell=True, text=True).strip()
-    with open("auth/api_key", "wb+") as apikey:
-        apikey.write(api_key.encode('utf-8'))
-        apikey.flush()
-        apikey.close()
+    module_path = os.path.abspath(os.path.join('.'))
+    sys.path.append(module_path)
+    config_file = module_path+'/config/config.ini'
+    config = configparser.ConfigParser()
+    config.read(config_file)
+    config.set('API_AUTH', 'api_key', f'{api_key}')
+
+    with open(config_file, 'w') as configfile:
+        config.write(configfile)
 
     # #Add API Key to Secret Manager
     # api_secret_cmd = f"""echo '{api_key}' | gcloud secrets create {secret_name} --data-file=-"""
@@ -160,7 +162,7 @@ def main():
     f"--add-volume-mount=volume=v_chromadb,mount-path=/chroma_data "
     f"--service-account={service_account_email} "
     # f"--update-secrets=/secrets/api_key={secret_name}:latest "
-    f"--port 8080 "
+    f"--port 8084 "
     f"--cpu=2 "
     f"--memory=2Gi "
     f"--service-min-instances=1 "
@@ -182,11 +184,6 @@ def main():
     else:
         print("Cannot get Service URL, check logs and run training setup later")
         sys.exit(1)
-
-    #Running Training Setup
-    print("Running Training Setup...")
-    response = train_setup(service_url, project_id, dataset_id, table_list)
-    print(response)
 
     print("Setup completed successfully!")
 
